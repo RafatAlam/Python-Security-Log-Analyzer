@@ -80,3 +80,13 @@ The timestamp format is `YYYY-MM-DD HH:MM:SS`. Status must be `success` or `fail
 ```bash
 python -m unittest -v
 ```
+
+## Phase 1: Linux SSH Logs
+
+The analyzer also supports common Linux OpenSSH `sshd` authentication records, including failed passwords, invalid usernames, and accepted password/public-key logins. Try:
+
+```bash
+python analyzer.py --log logs/ssh_auth.log --year 2026
+```
+
+The original `logs/auth.log` custom format still works. SSH syslog timestamps have no year, so use `--year` for archived logs (otherwise the current local year is assumed). Only supported `sshd` authentication messages are parsed; other syslog messages are counted as unsupported.
