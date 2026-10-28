@@ -91,5 +91,25 @@ class LoadEventsTests(unittest.TestCase):
             self.assertEqual(invalid_count, 1)
 
 
+
+
+class SSHParsingTests(unittest.TestCase):
+    def test_failed_invalid_user(self):
+        line = "Jan 15 09:14:03 server sshd[1234]: Failed password for invalid user admin from 203.0.113.25 port 55234 ssh2"
+        event = parse_log_line(line, year=2026)
+        self.assertEqual((event.username, event.ip, event.status), ("admin", "203.0.113.25", "failed"))
+        self.assertEqual(event.timestamp.year, 2026)
+
+    def test_successful_publickey(self):
+        line = "Jan 15 09:18:20 server sshd[1240]: Accepted publickey for sam from 198.51.100.7 port 55240 ssh2"
+        self.assertEqual(parse_log_line(line, year=2026).status, "success")
+
+    def test_malformed_ssh_record(self):
+        self.assertIsNone(parse_log_line("Jan 15 server sshd: nonsense", year=2026))
+
+    def test_invalid_ip(self):
+        line = "Jan 15 09:14:03 server sshd[1234]: Failed password for root from not-an-ip port 55234 ssh2"
+        self.assertIsNone(parse_log_line(line, year=2026))
+
 if __name__ == "__main__":
     unittest.main()
