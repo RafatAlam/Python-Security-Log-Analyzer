@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import ipaddress
 import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass
@@ -27,6 +28,17 @@ LOG_PATTERN = re.compile(
 )
 
 
+# Common syslog-style OpenSSH messages. The year is not included in these logs.
+SSH_PATTERN = re.compile(
+    r"^(?P<month>[A-Z][a-z]{2})\s+(?P<day>\d{1,2})\s+"
+    r"(?P<clock>\d{2}:\d{2}:\d{2})\s+\S+\s+"
+    r"sshd\[\d+\]:\s+"
+    r"(?P<result>Failed|Accepted)\s+\S+\s+for\s+"
+    r"(?P<invalid>invalid user\s+)?(?P<username>\S+)\s+"
+    r"from\s+(?P<ip>\S+)\s+port\s+\d+(?:\s+.*)?$"
+)
+
+
 @dataclass(frozen=True)
 class LogEvent:
     timestamp: datetime
@@ -35,28 +47,41 @@ class LogEvent:
     status: str
 
 
-def parse_log_line(line: str) -> LogEvent | None:
-    """Parse one supported log line. Return None for malformed records."""
-    match = LOG_PATTERN.match(line.strip())
+def parse_log_line(line: str, year: int | None = None) -> LogEvent | None:
+    """Parse a custom record or common Linux OpenSSH login event.
+
+    Syslog SSH timestamps omit the year, so pass the year explicitly when
+    analyzing archived logs. The default is the current local year.
+    """
+    line = line.strip()
+    match = LOG_PATTERN.fullmatch(line)
+    if match:
+        try:
+            timestamp = datetime.strptime(match.group("timestamp"), TIMESTAMP_FORMAT)
+            ipaddress.ip_address(match.group("ip"))
+        except ValueError:
+            return None
+        return LogEvent(timestamp, match.group("username"), match.group("ip"),
+                        match.group("status").lower())
+
+    match = SSH_PATTERN.fullmatch(line)
     if not match:
         return None
-
+    if year is None:
+        year = datetime.now().year
     try:
         timestamp = datetime.strptime(
-            match.group("timestamp"), TIMESTAMP_FORMAT
+            f"{year} {match.group('month')} {match.group('day')} {match.group('clock')}",
+            "%Y %b %d %H:%M:%S",
         )
+        ipaddress.ip_address(match.group("ip"))
     except ValueError:
         return None
-
-    return LogEvent(
-        timestamp=timestamp,
-        username=match.group("username"),
-        ip=match.group("ip"),
-        status=match.group("status").lower(),
-    )
+    return LogEvent(timestamp, match.group("username"), match.group("ip"),
+                    "failed" if match.group("result") == "Failed" else "success")
 
 
-def load_events(log_path: Path) -> tuple[list[LogEvent], int]:
+def load_events(log_path: Path, year: int | None = None) -> tuple[list[LogEvent], int]:
     """Load valid events and count malformed or unsupported lines."""
     events: list[LogEvent] = []
     invalid_count = 0
@@ -65,7 +90,7 @@ def load_events(log_path: Path) -> tuple[list[LogEvent], int]:
         for line in log_file:
             if not line.strip():
                 continue
-            event = parse_log_line(line)
+            event = parse_log_line(line, year=year)
             if event is None:
                 invalid_count += 1
             else:
@@ -254,6 +279,10 @@ def main() -> None:
         default=5,
         help="Rolling detection window in minutes (default: 5)",
     )
+    parser.add_argument(
+        "--year", type=int, default=datetime.now().year,
+        help="Year for SSH syslog timestamps (which omit the year)",
+    )
     args = parser.parse_args()
 
     if args.threshold < 1 or args.window < 1:
@@ -262,7 +291,7 @@ def main() -> None:
         parser.error(f"Log file not found: {args.log}")
 
     try:
-        events, invalid_count = load_events(args.log)
+        events, invalid_count = load_events(args.log, year=args.year)
     except OSError as error:
         parser.error(f"Could not read log file: {error}")
 
