@@ -1,3 +1,7 @@
 workspace.code-workspace
-__pycache__/analyzer.cpython-311.pyc
-__pycache__/test_analyzer.cpython-311.pyc
+src/__pycache__/__init__.cpython-311.pyc
+src/__pycache__/detector.cpython-311.pyc
+src/__pycache__/models.cpython-311.pyc
+src/__pycache__/parser.cpython-311.pyc
+src/__pycache__/reporter.cpython-311.pyc
+src/__pycache__/parser.cpython-311 copy.pyc
