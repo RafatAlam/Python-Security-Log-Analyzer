@@ -5,3 +5,5 @@ src/__pycache__/models.cpython-311.pyc
 src/__pycache__/parser.cpython-311.pyc
 src/__pycache__/reporter.cpython-311.pyc
 src/__pycache__/parser.cpython-311 copy.pyc
+tests/__pycache__/test_detector.cpython-311.pyc
+tests/__pycache__/test_parser.cpython-311.pyc
