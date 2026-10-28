@@ -1,0 +1,5 @@
+timestamp,ip_address,rule,severity,count,details
+2026-01-15 09:02:00,203.0.113.10,brute_force,HIGH,5,5 failed logins in 5 minutes
+2026-01-15 09:12:00,198.51.100.20,brute_force,HIGH,5,5 failed logins in 5 minutes
+2026-01-15 09:12:00,198.51.100.20,password_spraying,HIGH,5,Failures against 5 usernames in 10 minutes
+2026-01-15 09:21:00,192.0.2.30,success_after_failures,CRITICAL,3,Successful login for alex after 3 failures from this IP in 10 minutes
