@@ -1,0 +1,3 @@
+# Phase 3 dashboard dependencies; command-line analyzer uses only the stdlib.
+streamlit>=1.40,<2.0
+pandas>=2.2,<3.0
