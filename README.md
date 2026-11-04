@@ -1,6 +1,6 @@
 # Python Security Log Analyzer
 
-A Python cybersecurity portfolio project that analyzes authentication logs, detects suspicious login activity, and provides a Streamlit dashboard. **Phase 4 adds continuous log monitoring, automated alerts, persistent alert history, and optional webhook notifications.**
+A Python cybersecurity portfolio project that analyzes authentication logs, detects suspicious login activity, and provides a Streamlit dashboard. **Phase 4 adds continuous log monitoring, automated alerts, persistent alert history, optional webhook notifications, and an automatically refreshing dashboard.**
 
 ## Features
 
@@ -12,6 +12,7 @@ A Python cybersecurity portfolio project that analyzes authentication logs, dete
 - **Watch newly appended log entries** without restarting the analyzer.
 - **Print security notifications immediately**, optionally with a terminal beep.
 - **Save live alerts to JSONL** for later review and display them in an automatically refreshed dashboard tab.
+- **Auto-refresh every dashboard chart, login counter, detection table, and IP investigation view every five seconds** when monitoring a growing local log.
 - Optionally send alerts through a **Discord or Slack webhook**, with explicit opt-in.
 - Run automated unit tests for parsing, detection, reporting, dashboard data processing, and live monitoring.
 
@@ -34,13 +35,14 @@ Python-Security-Log-Analyzer/
 │   ├── detector.py
 │   ├── reporter.py
 │   ├── dashboard_data.py
-│   └── monitor_engine.py       
+│   └── monitor_engine.py       # File following, live detection, notifications
 ├── tests/
 │   ├── __init__.py
 │   ├── test_parser.py
 │   ├── test_detector.py
 │   ├── test_dashboard_data.py
-│   └── test_monitor_engine.py
+│   ├── test_monitor_engine.py
+│   └── test_live_dashboard.py
 ├── logs/
 │   ├── auth.log
 │   ├── ssh_auth.log
@@ -105,9 +107,21 @@ Open a **third terminal**:
 python -m streamlit run dashboard.py
 ```
 
-Open http://localhost:8501 and select the **🔔 Live alerts** tab. The alert table refreshes automatically about every five seconds. It reads the monitor's persisted JSONL file and is **independent of the dashboard's selected static sample or uploaded log**.
+Open http://localhost:8501. In the sidebar under **Data source**, select **Live monitoring (auto-refresh)**.
 
-You do not need to upload `live_demo.log` for the live-alert feed; the running monitor writes its alerts to the JSONL file. If you want to explore the simulated events using the historical charts, upload `logs/live_demo.log` after running the simulator.
+All of the following now refresh automatically about every five seconds as new events are appended to `logs/live_demo.log`:
+
+- Login Trends graph and login-events table
+- Successful/failed login counters and detected-threat counters
+- Threat Alerts table and horizontal alert chart
+- IP Investigation summary and Top IPs bar chart
+- Live Alerts tab (reads the independently saved `reports/live_alerts.jsonl`)
+
+The **Show all dates (follow new events)** option is on by default in live mode. It automatically includes newly added dates, including events after midnight. Turn it off to select a fixed date range. IP, severity, detection-rule and time-grouping filters remain usable while live data updates.
+
+The dashboard only **reads** the monitored log; keep `run_monitor.py` running to generate persistent notifications. The plots are recomputed from the log file, so the chart alert count may differ from the monitor's saved notification count after restarts/replays or when thresholds differ. You do not need to upload `live_demo.log` for live mode.
+
+**Important:** The monitor's `--log` path and the dashboard's live mode must refer to the same file: `logs/live_demo.log`. The dashboard reads up to 5 MB per refresh, so use a small log for this demo.
 
 ### Monitor an existing log file once
 
@@ -165,9 +179,10 @@ The dashboard shows:
 - **Login trends** line graph: X-axis = time; Y-axis = logins per chosen interval; lines = successful and failed logins.
 - **Threat alerts** horizontal bar graph: X-axis = number of alerts; Y-axis = detection rule.
 - **IP investigation** horizontal bar graph: X-axis = failed login counts; Y-axis = source IP addresses.
-- **Live alerts**: recently saved alerts from the running Phase 4 monitor, refreshing every five seconds.
+- **Live alerts**: saved alerts from the running Phase 4 monitor, refreshing every five seconds.
+- **Live monitoring (auto-refresh)**: every dashboard tab and summary metric reloads `logs/live_demo.log` every five seconds, not just the saved alert feed.
 
-The historical dashboard supports uploading `.log` or `.txt` files, changing date/IP/severity filters, tuning detection thresholds, and exporting filtered CSV data.
+The dashboard supports uploading `.log` or `.txt` files, changing date/IP/severity filters, tuning detection thresholds, and exporting filtered CSV data. To view incoming events without manual refresh or uploads, select the live monitoring data source.
 
 ## Detection rules
 
@@ -187,7 +202,7 @@ Run all automated tests from the **project root**:
 python -m unittest discover -s tests -p "test_*.py" -v
 ```
 
-The suite includes tests for log parsing, Linux SSH formats, detection windows, CSV reports, dashboard data transforms, incremental file reading, partial lines, truncation, deduplication, JSONL persistence, and webhook payloads.
+The suite includes tests for log parsing, Linux SSH formats, detection windows, CSV reports, dashboard data transforms, freshly appended events in the live dashboard, partial lines, truncation, deduplication, JSONL persistence, and webhook payloads.
 
 ## Security and limitations
 
@@ -198,6 +213,7 @@ The suite includes tests for log parsing, Linux SSH formats, detection windows, 
 - Traditional Linux SSH syslog timestamps omit the year; use `--year` for archived logs. Automatic year rollover and timezone conversion are not implemented.
 - File following handles incomplete lines and common rotation/truncation cases, but may miss writes during shutdown or unusually fast file rotation.
 - Saved alert IDs are used to prevent duplicate notifications upon replay; the monitor's rolling detection context is in memory. For reliable state reconstruction after restarts, use `--from-start` with a small known log.
-- The live dashboard reads the local JSONL file; remote deployment requires a shared persistent file or a proper database/queue integration.
+- The live dashboard reads local `logs/live_demo.log` and `reports/live_alerts.jsonl`; remote deployment requires shared persistent storage or a database/queue integration.
+- The live dashboard rereads the entire log file on each 5-second refresh (up to 5 MB), so this design is for demos and small logs rather than high-volume production monitoring.
 - Optional webhooks send data outside your computer. Do not enable them with sensitive records unless you have permission.
 - This is an educational prototype, not production monitoring or an incident-response system.

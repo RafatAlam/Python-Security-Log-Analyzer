@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from pathlib import Path
 from typing import Iterable
 
 import pandas as pd
@@ -98,3 +99,40 @@ def severity_counts(alerts: pd.DataFrame) -> dict[str, int]:
         "CRITICAL": int((alerts["severity"] == "CRITICAL").sum()),
         "HIGH": int((alerts["severity"] == "HIGH").sum()),
     }
+
+
+# --------------------------------------------------
+# PHASE 4: LIVE LOG SNAPSHOTS
+# --------------------------------------------------
+
+def read_live_log(
+    path: Path,
+    year: int,
+    max_bytes: int = 5 * 1024 * 1024,
+) -> tuple[list[LogEvent], int]:
+    """Read the *current* complete lines from a growing log file.
+
+    Called on every dashboard refresh; no caching is used. A missing file
+    simply means that monitoring has not written any events yet. The last
+    unfinished line is ignored until it has been fully appended.
+    """
+    if max_bytes < 1:
+        raise ValueError("max_bytes must be positive")
+
+    try:
+        with Path(path).open("rb") as handle:
+            raw = handle.read(max_bytes + 1)
+    except FileNotFoundError:
+        return [], 0
+
+    if len(raw) > max_bytes:
+        raise ValueError(f"Log file exceeds the {max_bytes:,}-byte dashboard limit")
+
+    if not raw:
+        return [], 0
+
+    # A writer may have just started a record; wait until it ends in newline.
+    if not raw.endswith(b"\n"):
+        raw = raw.rsplit(b"\n", 1)[0] + b"\n" if b"\n" in raw else b""
+
+    return load_log_text(raw.decode("utf-8-sig"), year)
