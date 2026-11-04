@@ -6,4 +6,7 @@ venv/
 .pytest_cache/
 .DS_Store
 reports/*.csv
+!reports/.gitkeep
+reports/*.jsonl
 .agents/
+logs/live_demo.log
